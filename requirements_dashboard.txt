@@ -1,0 +1,13 @@
+# IT Support Dashboard Requirements
+
+# Core bot dependencies
+python-telegram-bot==20.7
+
+# Dashboard dependencies
+Flask==3.0.0
+Flask-SocketIO==5.3.5
+pandas==2.1.4
+openpyxl==3.1.2
+
+# Additional useful packages
+python-dotenv==1.0.0

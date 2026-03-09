@@ -1,0 +1,27 @@
+{
+  "BOT_TOKEN": "8020914476:AAGOMDXpOI7urNsQx-9w91AfHAEr5nDS8Jo",
+  "SUPPORT_GROUP_ID": -1002536682892,
+  "IT_GROUP_ID": -1002961286854,
+  "ISSUE_CATEGORIES": {
+    "laptop": {
+      "name": "Laptop Issue",
+      "it_exec": "@KimhengMW",
+      "topic_id": 4
+    },
+    "printer": {
+      "name": "Printer Issue", 
+      "it_exec": "@MabMit_MW",
+      "topic_id": 2
+    },
+    "software": {
+      "name": "Software Issue",
+      "it_exec": "@ReaksaMW",
+      "topic_id": 377
+    },
+    "other": {
+      "name": "Other Issue",
+      "it_exec": "@KimhengMW",
+      "topic_id": 1
+    }
+  }
+}

@@ -12,12 +12,29 @@ from datetime import datetime, timedelta
 import pandas as pd
 from io import BytesIO
 import os
+import logging
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
 DATABASE = 'it_support.db'
+CONFIG_PATH = 'config.json'
+
+
+def load_config(config_path=CONFIG_PATH):
+    """Load dashboard/bot configuration from JSON file."""
+    if not os.path.exists(config_path):
+        return {}
+
+    with open(config_path, 'r', encoding='utf-8') as config_file:
+        return json.load(config_file)
 
 class DashboardManager:
     """Manages dashboard data and statistics"""
@@ -148,7 +165,7 @@ class DashboardManager:
         cursor.execute("""
             SELECT 
                 case_id, username, full_name, category, status, 
-                created_at, it_executive
+                created_at, it_executive, COALESCE(alert_count, 0)
             FROM cases
             ORDER BY created_at DESC
             LIMIT ?
@@ -163,7 +180,8 @@ class DashboardManager:
                 'category': row[3],
                 'status': row[4],
                 'created_at': row[5],
-                'it_executive': row[6]
+                'it_executive': row[6],
+                'alert_count': row[7]
             })
         
         conn.close()
@@ -334,7 +352,7 @@ def export_excel():
 def alert_case(case_id):
     """Send alert to IT staff via Telegram bot"""
     try:
-        import requests
+        config = load_config()
         
         # Get case details
         conn = dashboard.get_connection()
@@ -365,33 +383,58 @@ def alert_case(case_id):
         alert_count = cursor.fetchone()[0]
         conn.close()
         
-        # Prepare alert data for Telegram bot
-        alert_data = {
-            'case_id': case_id,
-            'username': case[2],
-            'full_name': case[3],
-            'category': case[4],
-            'it_executive': case[8],
-            'created_at': case[6],
-            'alert_count': alert_count
-        }
-        
-        # Try to send alert via bot (if running)
-        try:
-            # This will be handled by the bot directly
-            # For now, we just update the database
-            pass
-        except:
-            pass
-        
+        category = case[4]
+        issue_map = config.get('ISSUE_CATEGORIES', {})
+        topic_id = issue_map.get(category, {}).get('topic_id')
+        bot_token = config.get('BOT_TOKEN')
+        it_group_id = config.get('IT_GROUP_ID')
+
+        if bot_token and it_group_id:
+            try:
+                import requests
+
+                alert_message = (
+                    f"🔔 ALERT - CASE REMINDER #{alert_count}\n\n"
+                    f"Case ID: #{case_id}\n"
+                    f"User: {case[3]} (@{case[2]})\n"
+                    f"Category: {category.upper()}\n"
+                    f"Assigned IT: {case[8]}\n"
+                    f"Created: {case[6]}\n"
+                    f"Total Alerts Sent: {alert_count}\n\n"
+                    "Please check and resolve this case as soon as possible."
+                )
+
+                payload = {
+                    'chat_id': it_group_id,
+                    'text': alert_message
+                }
+                if topic_id:
+                    payload['message_thread_id'] = topic_id
+
+                telegram_response = requests.post(
+                    f'https://api.telegram.org/bot{bot_token}/sendMessage',
+                    json=payload,
+                    timeout=10
+                )
+                telegram_response.raise_for_status()
+                telegram_data = telegram_response.json()
+
+                if not telegram_data.get('ok'):
+                    raise ValueError(telegram_data.get('description', 'Unknown Telegram API error'))
+            except Exception as telegram_error:
+                logger.error(f"❌ Error sending Telegram alert: {telegram_error}")
+                return jsonify({'error': f'Alert count updated, but Telegram send failed: {str(telegram_error)}'}), 502
+        else:
+            logger.warning('Telegram configuration incomplete. Alert saved in DB only.')
+
         logger.info(f"✅ Alert triggered for case #{case_id} from dashboard")
-        
+
         return jsonify({
             'success': True,
             'message': f'Alert sent to {case[8]}',
             'alert_count': alert_count
         })
-        
+
     except Exception as e:
         logger.error(f"❌ Error alerting case: {e}")
         return jsonify({'error': str(e)}), 500

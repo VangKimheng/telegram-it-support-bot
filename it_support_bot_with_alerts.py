@@ -430,12 +430,9 @@ async def submit_case(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                         message_thread_id=topic_id if topic_id else None
                     )
             
-            # Add both Alert and Close buttons
+            # Add close button
             keyboard = [
-                [
-                    InlineKeyboardButton("🔔 Alert IT", callback_data=f'alert_{case_id}'),
-                    InlineKeyboardButton("✅ Close Case", callback_data=f'close_{case_id}')
-                ]
+                [InlineKeyboardButton("✅ Close Case", callback_data=f'close_{case_id}')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -730,7 +727,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/cancel - Cancel\n\n"
         "For IT Staff:\n"
         "/cases - View open cases\n"
-        "🔔 Alert IT - Send reminder for pending case\n"
         "✅ Close Case - Resolve ticket\n\n"
         "Debug:\n"
         "/debug - Show info\n\n"
@@ -799,7 +795,6 @@ def main():
     
     application.add_handler(support_conv)
     application.add_handler(closure_conv)
-    application.add_handler(CallbackQueryHandler(alert_it_staff, pattern='^alert_'))
     application.add_handler(CommandHandler('cases', view_open_cases))
     application.add_handler(CommandHandler('debug', debug_info))
     application.add_handler(CommandHandler('help', help_command))
@@ -809,7 +804,6 @@ def main():
     print("=" * 50)
     print(f"📋 Support: {CONFIG.get('SUPPORT_GROUP_ID', 'Not set')}")
     print(f"🔧 IT Group: {CONFIG.get('IT_GROUP_ID', 'Not set')}")
-    print("🔔 Alert Feature: ENABLED")
     print("=" * 50)
     
     logger.info("🚀 Bot started with alert feature!")

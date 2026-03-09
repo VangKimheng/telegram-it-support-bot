@@ -588,7 +588,7 @@
                         <div class="case-actions">
                             <span class="status-badge status-${c.status}">${c.status.toUpperCase()}</span>
                             <div style="font-size: 12px; color: #999; margin-top: 5px;">${c.it_executive}</div>
-                            ${c.status === 'open' ? `
+                            ${(c.status || '').toLowerCase() === 'open' ? `
                                 <button class="alert-btn" onclick="alertCase(${c.case_id}, this)">
                                     🔔 Alert IT
                                 </button>

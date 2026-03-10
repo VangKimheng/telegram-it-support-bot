@@ -8,6 +8,7 @@ from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit
 import sqlite3
 import json
+import logging
 from datetime import datetime, timedelta
 import pandas as pd
 from io import BytesIO
@@ -16,6 +17,9 @@ import os
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DATABASE = 'it_support.db'
 

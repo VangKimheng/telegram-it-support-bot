@@ -8,6 +8,7 @@ from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit
 import sqlite3
 import json
+import logging
 from datetime import datetime, timedelta
 import pandas as pd
 from io import BytesIO
@@ -16,6 +17,9 @@ import os
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DATABASE = 'it_support.db'
 
@@ -334,64 +338,52 @@ def export_excel():
 def alert_case(case_id):
     """Send alert to IT staff via Telegram bot"""
     try:
-        import requests
-        
-        # Get case details
         conn = dashboard.get_connection()
         cursor = conn.cursor()
+
+        # Ensure alert tracking columns exist for older databases
+        cursor.execute("PRAGMA table_info(cases)")
+        case_columns = {row[1] for row in cursor.fetchall()}
+        if 'alert_count' not in case_columns:
+            cursor.execute("ALTER TABLE cases ADD COLUMN alert_count INTEGER DEFAULT 0")
+        if 'last_alert' not in case_columns:
+            cursor.execute("ALTER TABLE cases ADD COLUMN last_alert TEXT")
+        conn.commit()
+
+        # Get case details
         cursor.execute('SELECT * FROM cases WHERE case_id = ?', (case_id,))
         case = cursor.fetchone()
-        conn.close()
-        
+
         if not case:
+            conn.close()
             return jsonify({'error': 'Case not found'}), 404
-        
+
         if case[5] == 'closed':  # status column
+            conn.close()
             return jsonify({'error': 'Case already closed'}), 400
-        
+
         # Increment alert count
-        conn = dashboard.get_connection()
-        cursor = conn.cursor()
         cursor.execute('''
-            UPDATE cases 
+            UPDATE cases
             SET alert_count = COALESCE(alert_count, 0) + 1,
                 last_alert = CURRENT_TIMESTAMP
             WHERE case_id = ?
         ''', (case_id,))
         conn.commit()
-        
+
         # Get updated alert count
-        cursor.execute('SELECT alert_count FROM cases WHERE case_id = ?', (case_id,))
+        cursor.execute('SELECT COALESCE(alert_count, 0) FROM cases WHERE case_id = ?', (case_id,))
         alert_count = cursor.fetchone()[0]
         conn.close()
-        
-        # Prepare alert data for Telegram bot
-        alert_data = {
-            'case_id': case_id,
-            'username': case[2],
-            'full_name': case[3],
-            'category': case[4],
-            'it_executive': case[8],
-            'created_at': case[6],
-            'alert_count': alert_count
-        }
-        
-        # Try to send alert via bot (if running)
-        try:
-            # This will be handled by the bot directly
-            # For now, we just update the database
-            pass
-        except:
-            pass
-        
+
         logger.info(f"✅ Alert triggered for case #{case_id} from dashboard")
-        
+
         return jsonify({
             'success': True,
             'message': f'Alert sent to {case[8]}',
             'alert_count': alert_count
         })
-        
+
     except Exception as e:
         logger.error(f"❌ Error alerting case: {e}")
         return jsonify({'error': str(e)}), 500
